@@ -56,7 +56,7 @@
       text-align: center;
     }
 
-    /* ✅ 固定高度版本 */
+    /* ✅固定高度（我已按你要求把加长版再缩短30% -> 532px）*/
     .projects-box {
       background: #fff;
       border-radius: 8px;
@@ -64,7 +64,7 @@
       border: 2px solid #e6e6e6;
       box-shadow: 0 2px 6px rgba(0,0,0,0.04);
       overflow-y: auto;
-      height: 760px; /* ✅ 固定到约 Yu Jun 长度 */
+      height: 532px; /* ← 这里是你要的固定高度（比我之前设的760短30%） */
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -437,42 +437,71 @@
         }
       }
       if (segment.length>0) segments.push(segment);
-      const projectName = dragInfo.projectName;
-      const colorMatch = projectName.match(/\((\d+)-/);
-      const projectColor = colorMatch ? projectCodeColorMap[colorMatch[1]] : "#ccc";
-      segments.forEach(seg => {
-        if (seg.length === 0) return;
-        const firstCell = seg[0];
-        const projectDiv = document.createElement('div');
-        projectDiv.className = 'assigned-project merged';
-        projectDiv.innerText = projectName;
-        projectDiv.style.background = projectColor;
-        const gridCellWidth = firstCell.offsetWidth;
-        const gridCellHeight = firstCell.offsetHeight;
-        const offsetLeft = firstCell.offsetLeft;
-        const offsetTop = firstCell.offsetTop;
-        const totalWidth = seg.length * (gridCellWidth + 2);
-        projectDiv.style.position = "absolute";
-        projectDiv.style.left = offsetLeft + "px";
-        projectDiv.style.top = offsetTop + "px";
-        projectDiv.style.width = totalWidth - 2 + "px";
-        projectDiv.style.height = gridCellHeight - 2 + "px";
-        projectDiv.style.border = "1px solid #aaa";
-        schedule.appendChild(projectDiv);
+      segments.forEach(seg=>{
+        const tempInfo={...dragInfo, cells:seg};
+        makeOneMergedBlock(tempInfo);
       });
-      dragInfo.project.remove();
+    }
+    function makeOneMergedBlock(dragInfo) {
+      if (dragInfo.cells.length===0) return;
+      dragInfo.cells.sort((a,b)=>parseInt(a.dataset.col)-parseInt(b.dataset.col));
+      const row = dragInfo.cells[0].dataset.row;
+      const startCol = parseInt(dragInfo.cells[0].dataset.col);
+      const endCol = parseInt(dragInfo.cells[dragInfo.cells.length-1].dataset.col);
+      dragInfo.cells.forEach(c=>c.classList.add('occupied'));
+      const merged = document.createElement('div');
+      merged.className = 'assigned-project merged';
+      merged.innerText = dragInfo.projectName;
+      merged.dataset.row = row;
+      merged.dataset.startCol = startCol;
+      merged.dataset.endCol = endCol;
+      const codeMatch = dragInfo.projectName.match(/\((\d+)-/);
+      if (codeMatch && projectCodeColorMap[codeMatch[1]]) {
+        merged.style.background = projectCodeColorMap[codeMatch[1]];
+      }
+      if (dragInfo.cells.length === 1) {
+        merged.style.fontSize = '14px';
+      }
+      const first = dragInfo.cells[0];
+      const last = dragInfo.cells[dragInfo.cells.length-1];
+      const firstRect = first.getBoundingClientRect();
+      const lastRect = last.getBoundingClientRect();
+      const schedRect = schedule.getBoundingClientRect();
+      const rawLeft = firstRect.left - schedRect.left;
+      const rawWidth = lastRect.right - firstRect.left;
+      const top = firstRect.top - schedRect.top;
+      const height = firstRect.height;
+      merged.style.left = rawLeft + 'px';
+      merged.style.width = rawWidth + 'px';
+      merged.style.top = top + 'px';
+      merged.style.height = height + 'px';
+      merged.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const row = this.dataset.row;
+        const start = parseInt(this.dataset.startCol);
+        const end = parseInt(this.dataset.endCol);
+        for (let c = start; c <= end; c++) {
+          const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${c}"]`);
+          if (cell) cell.classList.remove('occupied');
+        }
+        this.remove();
+      });
+      schedule.appendChild(merged);
     }
     submitTask.addEventListener('click', function() {
-      const taskName = newTaskInput.value.trim();
-      if (taskName) {
-        const newId = 'project' + (document.querySelectorAll('.project').length + 1);
-        const newProject = { id: newId, name: taskName };
-        createProjectElement(newProject, true);
-        newTaskInput.value = '';
-      }
+      const val = newTaskInput.value.trim();
+      if (!val) return;
+      const id = 'project_new_' + Date.now();
+      const project = { id: id, name: val };
+      createProjectElement(project, true);
+      newTaskInput.value = '';
+      projectsBox.scrollTop = 0;
     });
     newTaskInput.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') submitTask.click();
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitTask.click();
+      }
     });
   });
   </script>
